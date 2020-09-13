@@ -1,14 +1,16 @@
 {
-  "UPDATE_TB": "Mise à jours disponible:",
-  "NOUPDATE_TB": "Pas de mise à jour disponible.",
+  "UPDATE_TB": "Mise(s) à jour disponible:",
+  "NOUPDATE_TB": "Pas de nouvelles mises à jour disponible.",
+  "ONEUPDATE_TB": "Il y a une nouvelle mise à jour",
+  "SOMEUPDATE_TB": "Il y a {update} nouvelles mises à jour",
   "UPDATE_HELPTB": "Vous pouvez mettre à jour les modules avec la commande `/update <nom_du_module>`",
   "UPDATE_DONE": "Mise à jour terminée avec succès: {MODULE_NAME}",
-  "UPDATE_ERROR": "Erreur lors de la mise à jours: {ERROR}",
+  "UPDATE_ERROR": "Erreur lors de la mise à jour: {ERROR}\nVeuillez le résoudre manuellement.",
   "UPDATE_INPROGRESS": "Merci de patienter, une mise a jour est en cours !",
   "UPDATING" : "Mise à jour de: {MODULE_NAME}",
   "MODULENOTFOUND": "Module non trouvé: {MODULE_NAME}",
   "INIT_INPROGRESS" : "MMM-UpdateNotification n'est pas encore initialisé !",
-  "UPDATE_SCAN": "Recherche de nouvelles mises à jour (Force)...",
+  "UPDATE_SCAN": "Recherche de nouvelles mises à jour...",
   "HELP_UPDATE": "Gestionnaire de mises à jour",
   "HELP_SCAN": "Force la recherche de mises à jour",
   "HELP_STOP": "Force l'arrêt de MagicMirror",
@@ -28,5 +30,7 @@
   "COMMANDCONFIG": "La commande n'est pas trouvé dans le module {MODULE_NAME}",
   "MODULECONFIG": "Le nom du module n'est pas défini",
   "HELP_UPDATECOMMAND": "Liste des commandes de mise à jour automatisée des modules",
-  "WELCOMEERROR": "Vous avez {ERROR} erreur(s) dans updateCommands !\nMerci de résoudre ce conflit.\nMMM-UpdateNotification n'est pas activé\n\nEssayez /updateCommands pour plus d'informations\n"
+  "WELCOMEERROR": "Vous avez {ERROR} erreur(s) dans updateCommands !\nMerci de résoudre ce conflit.\nMMM-UpdateNotification n'est pas activé\n\nEssayez /updateCommands pour plus d'informations\n",
+  "WELCOMEERROR_NOTB": "Vous avez {ERROR} erreur(s) dans updateCommands !<br>Merci de résoudre ce conflit.<br>MMM-UpdateNotification n'est pas activé.<br><br>Consultez les logs de votre terminal pour plus d'informations.",
+  "HELP_CONFIG": "Affiche la configuration de MMM-UpdateNotification"
 }

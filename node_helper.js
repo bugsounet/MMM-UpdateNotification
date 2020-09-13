@@ -64,14 +64,23 @@ module.exports = NodeHelper.create({
         clearTimeout(this.updateTimer)
         this.updateTimer = null
         this.simpleGits = []
-        this.configureModules(payload).then(() => this.performFetch())
+        var data = []
+        this.configureModules(payload).then(async () => {
+          data = await this.performFetch()
+          this.sendSocketNotification("INITIALIZED", require('./package.json').version)
+          this.sendStatus(data)
+          this.scheduleNextFetch(this.config.updateInterval)
+        })
+        break
+      case "DISPLAY_ERROR":
+        console.log("[UN] Callbacks errors:\n\n" + payload)
         break
       case "UPDATE":
         this.updateProcess(payload)
         break
       case "FORCE_CHECK":
         this.ForceCheck = true
-        this.performFetch()
+        this.updateForce(payload)
         break
       case "CLOSEMM":
         this.doClose()
@@ -97,10 +106,8 @@ module.exports = NodeHelper.create({
     })
   },
 
-  performFetch: function () {
-    var moduleGitInfo = {}
-    if (this.ForceCheck) log("Force Scan Start")
-    this.simpleGits.forEach((sg,nb) => {
+  dataFetch: function (sg,nb) {
+    return new Promise((resolve, reject) => {
       sg.git.fetch().status((err, data) => {
         data.module = sg.module
         log("[" + (nb+1) + "/" + this.simpleGits.length +"] Scan:" , data.module)
@@ -113,44 +120,51 @@ module.exports = NodeHelper.create({
             tracking: data.tracking
           }
           if (!moduleGitInfo.current || !moduleGitInfo.tracking) {
-            return log("Scan Infos not complete:", data.module)
+            log("Scan Infos not complete:", data.module)
           } else {
             log("Scan Infos:", moduleGitInfo)
-            this.sendSocketNotification("STATUS", moduleGitInfo)
-            if (this.ForceCheck || !this.init) this.scanChk(nb,this.simpleGits.length-1, this.init)
           }
+          resolve(moduleGitInfo)
         } else {
           log("Scan Error: " + data.module, err)
-          if (this.ForceCheck || !this.init) this.scanChk(nb,this.simpleGits.length-1, this.init)
+          resolve()
         }
       })
     })
-    this.scheduleNextFetch(this.config.updateInterval);
   },
 
-  scanChk: function(nb,length, init) {
-    if (nb == length) {
-      if (this.init) {
-        this.ForceCheck = false
-        log("Force Scan Complete")
-        this.sendSocketNotification("SCAN_COMPLETE")
-      }
-      else {
-        this.init = true
-        this.sendSocketNotification("INITIALIZED", require('./package.json').version + " -- Beta2")
-      }
-    }
+  performFetch: function () {
+    var moduleGitInfo = []
+    var data = []
+    if (this.ForceCheck) log("Force Scan Start")
+    this.simpleGits.forEach((sg,nb) => { data.push(this.dataFetch(sg,nb)) })
+    return Promise.all(data)
   },
+
+  updateForce: async function (handler) {
+    clearTimeout(this.updateTimer)
+    var info = []
+    info = await this.performFetch()
+    if (this.ForceCheck) log("Force Scan End.")
+    this.sendStatus(info)
+    this.sendSocketNotification("SCAN_COMPLETE", handler)
+    this.ForceCheck = false
+    this.scheduleNextFetch(this.config.updateInterval)
+  },
+  /************************************************/
 
   scheduleNextFetch: function (delay) {
     if (delay < 60 * 1000) {
-      delay = 60 * 1000;
+      delay = 60 * 1000
     }
 
-    clearTimeout(this.updateTimer);
-    this.updateTimer = setTimeout(()=> {
-      this.performFetch();
-    }, delay);
+    clearTimeout(this.updateTimer)
+    this.updateTimer = setTimeout(async ()=> {
+      var data = []
+      data = await this.performFetch()
+      this.sendStatus(data)
+      this.scheduleNextFetch(this.config.updateInterval)
+    }, delay)
   },
 
   ignoreUpdateChecking: function (moduleName) {
@@ -168,6 +182,11 @@ module.exports = NodeHelper.create({
     return false
   },
 
+  sendStatus: function (data) {
+    if (!data) return
+    this.sendSocketNotification("STATUS", data)
+  },
+
   /** update **/
   updateProcess: function (module) {
     if (module == "MagicMirror") {
@@ -181,23 +200,22 @@ module.exports = NodeHelper.create({
       if (updateCommand.module == module) Command = updateCommand.command
     })
 
-    exec(Command, {cwd : modulePath } , (error, stdout, stderr) => {
+    exec(Command, {cwd : modulePath, timeout: this.config.update.timeout } , (error, stdout, stderr) => {
       if (error) {
         console.error(`[UN] exec error: ${error}`)
         if (this.config.notification.useTelegramBot) {
-          this.sendSocketNotification("SendResult", error.toString())
+          this.sendSocketNotification("SendResult", this.ExtraChars(error.toString()))
           this.sendSocketNotification("ERROR_UPDATE" , module)
         }
         return
-      }
-      log(`Update logs of ${module}: ${stdout}`)
-      if (!error) {
+      } else {
+        console.log(`[UN] Update logs of ${module}: ${stdout}`)
         if (this.config.notification.useTelegramBot) {
           /** trying to parse stdout to Telegram without errors ... it's horrible ! **/
           var res = {'results': stdout.split('\n')}
           var final = "Update logs of " + module + "\n"
           res.results.forEach(value => {
-            if (value) final += this.ExtraChars(value) + "\n"
+            if (value) final += this.ExtraChars(this.StripColor(value)) + "\n"
           })
           //log("[UN] Final for telegramBot:", final)
           final += "\n" + this.ExtraChars("[UN] Process update done, i do it... because you are so too lazy :)))") + "\n"
@@ -210,7 +228,7 @@ module.exports = NodeHelper.create({
           setTimeout(() => this.restartMM(), 3000)
         } else log("Process update done, don't forget to restart MagicMirror!")
       }
-    });
+    })
   },
 
   /** MagicMirror restart and stop **/
@@ -264,5 +282,12 @@ module.exports = NodeHelper.create({
     str = str.replace(new RegExp("\\[", "g"), "\\[")
     str = str.replace(new RegExp("`", "g"), "\\`")
     return str
+  },
+
+  /** remove only color **/
+  StripColor: function(str) {
+    str = str.replace(/\[(\[H\033\[2J|\d+;\d+H|\d+(;\d+;\d+(;\d+;\d+)?m|[m])|1K)|\[m/g, '')
+    return str
   }
+
 });

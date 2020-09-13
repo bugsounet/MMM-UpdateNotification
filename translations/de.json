@@ -1,9 +1,11 @@
 {
   "UPDATE_TB": "Aktualisierung verfügbar:",
-  "NOUPDATE_TB": "Keine Aktualisierung verfügbar.",
+  "NOUPDATE_TB": "Keine neue Aktualisierung verfügbar.",
+  "ONEUPDATE_TB": "Es ist eine neue Aktualisierung verfügbar.",
+  "SOMEUPDATE_TB": "Es sind {update} neue Aktualisierungen verfügbar.",
   "UPDATE_HELPTB": "Module können mit `/update <module_name>` aktualisiert werden.",
   "UPDATE_DONE": "Aktualisierung von {MODULE_NAME} erfolgreich.",
-  "UPDATE_ERROR": "Aktualisierungsfehler: {ERROR}",
+  "UPDATE_ERROR": "Aktualisierungsfehler: {ERROR}\nBitte eigenständig lösen.",
   "UPDATE_INPROGRESS": "Bitte den Abschluss des Aktualisierungsprozesses abwarten!",
   "UPDATING": "Aktualisiere {MODULE_NAME}",
   "MODULENOTFOUND": "Modul {MODULE_NAME} nicht gefunden.",
@@ -28,5 +30,7 @@
   "COMMANDCONFIG": "Befehl in {MODULE_NAME} nicht gefunden.",
   "MODULECONFIG": "Der Modulname ist nicht definiert.",
   "HELP_UPDATECOMMAND": "Liste automatisierter updateCommands-Befehle.",
-  "WELCOMEERROR": "Es gibt {ERROR} Fehler in updateCommands !\nBitte die Konflikte lösen.\nMMM-UpdateNotification ist nicht aktiviert.\n\nVersuche /updateCommands für mehr Informationen.\n"
+  "WELCOMEERROR": "Es gibt {ERROR} Fehler in updateCommands !\nBitte die Konflikte lösen.\nMMM-UpdateNotification ist nicht aktiviert.\n\nVersuche /updateCommands für mehr Informationen.\n",
+  "WELCOMEERROR_NOTB": "Es gibt {ERROR} Fehler in updateCommands !<br>Bitte die Konflikte lösen.<br>MMM-UpdateNotification ist nicht aktiviert.<br><br>Weitere Informationen finden Sie in den Terminal-Protokollen.",
+  "HELP_CONFIG": "Die Konfiguration von MMM-UpdateNotification anzeigen."
 }

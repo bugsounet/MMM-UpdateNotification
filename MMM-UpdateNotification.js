@@ -12,7 +12,6 @@ Module.register("MMM-UpdateNotification", {
   defaults: {
     debug: false,
     updateInterval: 10 * 60 * 1000, // every 10 minutes
-    refreshInterval: 24 * 60 * 60 * 1000, // restart time : 24 hours
     startDelay: 60 * 1000, // delay before 1st scan
     ignoreModules: [],
     updateCommands: [
@@ -42,7 +41,8 @@ Module.register("MMM-UpdateNotification", {
       PM2Name: "0",
       defaultCommand: "git pull && npm install",
       updateMagicMirror: false,
-      logToConsole: false
+      logToConsole: false,
+      timeout: 2*60*1000
     }
   },
 
@@ -56,19 +56,13 @@ Module.register("MMM-UpdateNotification", {
     this.config = configMerged({}, this.defaults, this.config)
     this.suspended = !this.config.notification.useScreen
     this.init= false
+    this.update = {}
     this.updating= false
     this.modulesName= []
     this.commandsError = []
     this.error = this.updateCommandsChk(this.config.updateCommands)
     this.modulesInfo( cb => console.log("[UN] Modules find:", this.modulesName.length))
-    setInterval(() => {
-      /** reset all and restart **/
-      this.modulesName= []
-      this.moduleList = {}
-      this.npmList = {}
-      this.modulesInfo(cb => this.sendSocketNotification("MODULES", this.modulesName))
-      this.updateDom(2)
-    }, this.config.refreshInterval)
+    this.session= {}
   },
 
   updateCommandsChk: function(str) {
@@ -126,14 +120,25 @@ Module.register("MMM-UpdateNotification", {
       case "DOM_OBJECTS_CREATED":
         this.sendSocketNotification("CONFIG", this.config)
         /** wait a little time ... every one is loading ! it's just an RPI !!! **/
-        if (this.error && this.config.notification.useTelegramBot) {
-          this.sendNotification("TELBOT_TELL_ADMIN", this.translate("WELCOMEERROR", { ERROR: error }), {parse_mode:'Markdown'})
+        if (this.error) {
+          if (this.config.notification.useTelegramBot) {
+            this.sendNotification("TELBOT_TELL_ADMIN", this.translate("WELCOMEERROR", { ERROR: this.error }), {parse_mode:'Markdown'})
+          }
+          else {
+            this.sendNotification("SHOW_ALERT", {
+              type: "notification" ,
+              message: this.translate("WELCOMEERROR_NOTB", { ERROR: this.error }),
+              title: "MMM-UpdateNotification",
+              timer: 0
+            })
+            this.updateCommands(null, null, null, true)
+          }
         }
         else setTimeout(() => this.sendSocketNotification("MODULES", this.modulesName), this.config.startDelay)
         break
       case "NPM_UPDATE":
         //console.log("npm", payload)
-        this.updateUI(payload)
+        if (!this.error) this.updateUI(payload)
         break
     }
   },
@@ -163,45 +168,45 @@ Module.register("MMM-UpdateNotification", {
         this.sendNotification("TELBOT_TELL_ADMIN",  this.translate("NEEDRESTART"))
         break
       case "ERROR_UPDATE":
-        this.updating = false
         this.sendNotification("TELBOT_TELL_ADMIN",  this.translate("UPDATE_ERROR", { ERROR: payload }))
         break
       case "SendResult":
-        this.updating = false
         this.sendNotification("TELBOT_TELL_ADMIN", payload, {parse_mode:'Markdown'})
         break
       case "SCAN_COMPLETE":
-        this.checkCallback()
+        this.checkCallback(payload)
         break
     }
   },
 
-  updateUI: function (payload) {
-    if (payload) {
-      if (payload.installed && payload.latest && payload.library) {
-        this.npmList[payload.library + " [" + payload.module +"]"] = payload
-        this.updateDom(2);
+  updateUI: function (modules) {
+    modules.forEach((dataValue) => {
+      if (dataValue) {
+        if (dataValue.installed && dataValue.latest && dataValue.library) {
+          this.npmList[dataValue.library + " [" + dataValue.module +"]"] = dataValue
+          this.updateDom(2)
+        }
+        else if (dataValue.behind > 0) {
+          // if we haven't seen info for this module
+          if (this.moduleList[dataValue.module] === undefined) {
+            // save it
+            this.moduleList[dataValue.module] = dataValue
+            this.updateDom(2)
+          }
+        } else if (dataValue.behind === 0) {
+          // if the module WAS in the list, but shouldn't be
+          if (this.notiTB[dataValue.module] !== undefined) {
+            // remove from TelegramBot
+            delete this.notiTB[dataValue.module]
+          }
+          if (this.moduleList[dataValue.module] !== undefined) {
+            // remove it
+            delete this.moduleList[dataValue.module]
+            this.updateDom(2)
+          }
+        }
       }
-      else if (payload.behind > 0) {
-        // if we haven't seen info for this module
-        if (this.moduleList[payload.module] === undefined) {
-          // save it
-          this.moduleList[payload.module] = payload
-          this.updateDom(2);
-        }
-      } else if (payload.behind === 0) {
-        // if the module WAS in the list, but shouldn't be
-        if (this.notiTB[payload.module] !== undefined) {
-          // remove from TelegramBot
-          delete this.notiTB[payload.module]
-        }
-        if (this.moduleList[payload.module] !== undefined) {
-          // remove it
-          delete this.moduleList[payload.module]
-          this.updateDom(2);
-        }
-      }
-    }
+    })
   },
 
   // Override dom generator.
@@ -284,7 +289,6 @@ Module.register("MMM-UpdateNotification", {
 
       /** NPM: if module is on ignoreModules array ... delete it **/
       if (this.config.ignoreModules.indexOf(npm.module) >= 0) {
-        console.log(this.npmList, this.notiTB)
         delete this.notiTB[key]
         delete this.npmList[key]
         continue
@@ -373,6 +377,11 @@ Module.register("MMM-UpdateNotification", {
       description: this.translate("HELP_UPDATECOMMAND"),
       callback: "updateCommands"
     })
+    commander.add({
+      command: "UNConfig",
+      description: this.translate("HELP_CONFIG"),
+      callback: "UNConfig"
+    })
   },
 
   getTranslations: function() {
@@ -419,7 +428,7 @@ Module.register("MMM-UpdateNotification", {
     }, 2000)
   },
 
-  updateCommands: function(command, handler) {
+  updateCommands: function(command, handler, moduleClass, style = false) {
     var text = this.translate("DEFAULTCONFIG")
     var nb = 0
     var err= 0
@@ -462,19 +471,99 @@ Module.register("MMM-UpdateNotification", {
         text += this.translate("ERRORCONFIGNOTACTIVATED")
       }
     }
-    handler.reply("TEXT", text + "\n", {parse_mode:'Markdown'})
+    if (!style) handler.reply("TEXT", text + "\n", {parse_mode:'Markdown'})
+    else this.sendSocketNotification("DISPLAY_ERROR", text)
   },
 
   UNCommands: function(command, handler) {
-    var helping = this.translate("HELP_UN") + "\n/update\n/scan\n/stopMM\n/restartMM\n/updateCommands\n"
+    var helping = this.translate("HELP_UN") + "\n/update\n/scan\n/stopMM\n/restartMM\n/updateCommands\n/UNConfig\n"
     helping += this.translate("HELP_COMMAND")
     handler.reply("TEXT", helping + "\n")
   },
 
+  UNConfig: function(command, handler) {
+    /** show the config like in config.js file with ALL value **/
+    var text = "{\n"
+    text += "  module: \"MMM-UpdateNotification\",\n",
+    text += "  position: \"" + this.data.position + "\",\n"
+    text += "  config: {\n"
+    text += "    debug: " + this.config.debug + ",\n"
+    text += "    updateInterval: " + this.config.updateInterval + ",\n"
+    text += "    startDelay: " + this.config.startDelay + "\n"
+    text += "    ignoreModules: ["
+    if (this.config.ignoreModules.length > 0) {
+      text += " "
+      this.config.ignoreModules.forEach((moduleName,nb) => {
+        text += "\"" + moduleName
+        if (nb != this.config.ignoreModules.length-1) text += "\", "
+        else text += "\" "
+      })
+      text += "],\n"
+    }
+    else text += " ],\n"
+
+    /** display updateCommands : [] **/
+    /** use this.data.config.updateCommands for fetch real config in config.js **/
+    /** method @bugsounet **/
+    /** maybe not the best method... **/
+    /** if someone can do better make PR :)) **/
+    /** because i'm not so strong with regex ! **/
+    text += "    updateCommands: ["
+    if (this.data.config && this.data.config.updateCommands) {
+      text += "\n"
+      this.data.config.updateCommands.forEach((data,nb) => { // loop on each array value, nb is the number of the value
+        text += "      {\n" // add spaces and open {
+        /** prepare formating **/
+        var field = JSON.stringify(data) // stringify array values
+        field = field.replace(new RegExp(":", "g"), ": ") // add space between 2 values
+        field = field.replace("{","") // delete {
+        field = field.replace("}","") // delete }
+        field = field.replace(",",",\n        ") // to go the line (separate value) and add spaces
+        /** prepare done ! **/
+        text += "        " + field + "\n" // add spaces and send result :)
+        if (nb != this.data.config.updateCommands.length-1) text += "      },\n" // it's not the last array value so it's `},`
+        else text += "      }\n" // it's the last array value so just close `}`
+      })
+      text += "    ],\n"
+    }
+    else text += " ],\n"
+    /** updateCommands process done **/
+
+    text += "    notification: {\n"
+    text += "      useTelegramBot: " + this.config.notification.useTelegramBot + ",\n"
+    text += "      sendReady: " + this.config.notification.sendReady + ",\n"
+    text += "      useScreen: " + this.config.notification.useScreen + ",\n"
+    text += "      useCallback: " + this.config.notification.useCallback + "\n"
+    text += "    },\n"
+    text += "    update: {\n"
+    text += "      autoUpdate: "+ this.config.update.autoUpdate + ",\n"
+    text += "      autoRestart: "+ this.config.update.autoRestart + ",\n"
+    text += "      usePM2: "+ this.config.update.usePM2 + ",\n"
+    text += "      PM2Name: \"" + this.config.update.PM2Name + "\",\n"
+    text += "      defaultCommand: \"" +this.config.update.defaultCommand + "\",\n"
+    text += "      updateMagicMirror: " + this.config.update.updateMagicMirror + ",\n"
+    text += "      logToConsole: " + this.config.update.logToConsole + "\n"
+    text += "      timeout: " + this.config.update.timeout + "\n"
+    text += "    }\n  }\n},"
+    handler.reply("TEXT", text + "\n")
+    if (this.error) this.updateCommands(command, handler)
+  },
+
   Scan: function(command, handler) {
     if (!this.init) return handler.reply("TEXT", this.translate("INIT_INPROGRESS"))
+    var found = 0
+    for (let [name, value] of Object.entries(this.notiTB)) {
+      if (this.npmList[name] || this.moduleList[name]) found += 1
+    }
+    this.update.old = found
     handler.reply("TEXT", this.translate("UPDATE_SCAN"))
-    this.sendSocketNotification("FORCE_CHECK")
+    /** try to manage session ... **/
+    var chatId = handler.message.chat.id
+    var userId = handler.message.from.id
+    var messageId = handler.message.message_id
+    var sessionId = messageId + ":" + userId + ":" + chatId
+    this.session[sessionId] = handler
+    this.sendSocketNotification("FORCE_CHECK", sessionId)
   },
 
   Update: function(command, handler) {
@@ -528,16 +617,28 @@ Module.register("MMM-UpdateNotification", {
     }
   },
 
-  checkCallback() {
-    /** callback for no module found **/
+  checkCallback: function (session) {
+    /** callback for update found **/
     var found = 0
     for (let [name, value] of Object.entries(this.notiTB)) {
-      if (this.npmList[name] || this.moduleList[name]) found = 1
+      if (this.npmList[name] || this.moduleList[name]) found += 1
     }
-    if (!found) this.sendNotification("TELBOT_TELL_ADMIN", this.translate("NOUPDATE_TB"))
+    this.update.new = found
+
+    let result = parseInt(this.update.new-this.update.old)
+    if (!result || result <= 0) this.Reply("scan", this.session[session], this.translate("NOUPDATE_TB"), session)
+    else if (result == 1) this.Reply("scan", this.session[session], this.translate("ONEUPDATE_TB"), session)
+    else this.Reply("scan", this.session[session], this.translate("SOMEUPDATE_TB", { update: result }), session)
   },
 
-  updateProcess(module) {
+  /** send a reply after all info received **/
+  Reply: function(command, handler, message, session, markdown = false) {
+    if (!message || !session) return console.log("wrong Format!", message, session)
+    handler.reply("TEXT", message, markdown )
+    delete this.session[session]
+  },
+
+  updateProcess: function (module) {
     if (this.error) return
     this.sendNotification("WAKEUP")
     this.sendSocketNotification("UPDATE", module)
