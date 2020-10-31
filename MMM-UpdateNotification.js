@@ -26,6 +26,10 @@ Module.register("MMM-UpdateNotification", {
       {
         module: "MMM-Assistant2Display",
         command: "npm run update -- without-prompt"
+      },
+      {
+        module: "MMM-Pronote",
+        command: "npm run update"
       }
     ],
     notification: {
