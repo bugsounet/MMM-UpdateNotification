@@ -57,6 +57,7 @@ Module.register("MMM-UpdateNotification", {
 
   start: function () {
     console.log("[UN] Start MMM-UpdateNotification")
+    this.nbDefaultCommands= this.defaults.updateCommands.length
     this.config = configMerged({}, this.defaults, this.config)
     this.suspended = !this.config.notification.useScreen
     this.init= false
@@ -73,7 +74,7 @@ Module.register("MMM-UpdateNotification", {
     this.commandsError = []
     error = 0
     modules =[]
-    nb = 0
+    nb = 1
     str.forEach(x => {
       var err = {}
       if (!x.module && !x.command) {
@@ -81,7 +82,7 @@ Module.register("MMM-UpdateNotification", {
         err = {
           type: "unknow",
           module: "unknow",
-          place: nb-2
+          place: nb-this.nbDefaultCommands
         }
         this.commandsError.push(err)
       }
@@ -90,7 +91,7 @@ Module.register("MMM-UpdateNotification", {
         err = {
           type: "module",
           module: "unknow",
-          place: nb-2
+          place: nb-this.nbDefaultCommands
         }
         this.commandsError.push(err)
       }
@@ -99,7 +100,7 @@ Module.register("MMM-UpdateNotification", {
         err = {
           type: "command",
           module: x.module,
-          place: nb-2
+          place: nb-this.nbDefaultCommands
         }
         this.commandsError.push(err)
       }
@@ -108,7 +109,7 @@ Module.register("MMM-UpdateNotification", {
         err = {
           type: "double",
           module: x.module,
-          place: nb-2
+          place: nb-this.nbDefaultCommands
         }
         this.commandsError.push(err)
       }
@@ -434,31 +435,31 @@ Module.register("MMM-UpdateNotification", {
 
   updateCommands: function(command, handler, moduleClass, style = false) {
     var text = this.translate("DEFAULTCONFIG")
-    var nb = 0
+    var nb = 1
     var err= 0
     /** display default updateCommands **/
     this.config.updateCommands.forEach(update => {
-      if (nb >=0 && nb <= 2) text += "*"+ update.module + ":* `" + update.command + "`\n"
+      if (nb >=1 && nb <= this.nbDefaultCommands) text += "*"+ update.module + ":* `" + update.command + "`\n"
       nb += 1
     })
 
-    if (this.config.updateCommands.length > 3) {
-      nb = 0
+    if (this.config.updateCommands.length > this.nbDefaultCommands) {
+      nb = 1
       text += this.translate("PERSONALCONFIG")
       this.config.updateCommands.forEach(update => {
         err = 0
         if (!this.error) {
-          if (nb > 2) text += "*"+ (nb-2) +". " + update.module + ":* `" + update.command + "` ✅\n"
+          if (nb > this.nbDefaultCommands) text += "*"+ (nb-this.nbDefaultCommands) +". " + update.module + ":* `" + update.command + "` ✅\n"
         }
         else {
           this.commandsError.forEach(error => {
-            if (error.place === nb-2) {
+            if (error.place === nb-this.nbDefaultCommands) {
               text += "*"+error.place+". " + update.module + ":* `" + update.command + "` ⁉️\n"
               err = 1
             }
           })
           if (!err) {
-            if (nb > 2) text += "*"+(nb-2)+". " + update.module + ":* `" + update.command + "` ✅\n"
+            if (nb > this.nbDefaultCommands) text += "*"+(nb-this.nbDefaultCommands)+". " + update.module + ":* `" + update.command + "` ✅\n"
           }
         }
         nb += 1
