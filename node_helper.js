@@ -56,9 +56,7 @@ module.exports = NodeHelper.create({
       case "CONFIG":
         this.config = payload
         if (this.config.debug) log = (...args) => { console.log("[UN]", ...args) }
-        if (this.config.notification.useTelegramBot && this.config.notification.sendReady) {
-          this.sendSocketNotification("WELCOME", process.pid)
-        }
+        if (this.config.notification.sendReady) this.sendSocketNotification("WELCOME", process.pid)
         break
       case "MODULES":
         clearTimeout(this.updateTimer)
@@ -203,30 +201,36 @@ module.exports = NodeHelper.create({
     exec(Command, {cwd : modulePath, timeout: this.config.update.timeout } , (error, stdout, stderr) => {
       if (error) {
         console.error(`[UN] exec error: ${error}`)
-        if (this.config.notification.useTelegramBot) {
-          this.sendSocketNotification("SendResult", this.ExtraChars(error.toString()))
-          this.sendSocketNotification("ERROR_UPDATE" , module)
-        }
-        return
-      } else {
-        console.log(`[UN] Update logs of ${module}: ${stdout}`)
-        if (this.config.notification.useTelegramBot) {
-          /** trying to parse stdout to Telegram without errors ... it's horrible ! **/
-          var res = {'results': stdout.split('\n')}
-          var final = "Update logs of " + module + "\n"
+        if (this.config.notification.useTelegramBot && this.config.notification.useCallback) {
+          var res = {'results': error.toString().split('\n')}
+          var final = "Update logs of " + module + ":\n\n"
           res.results.forEach(value => {
             if (value) final += this.ExtraChars(this.StripColor(value)) + "\n"
           })
-          //log("[UN] Final for telegramBot:", final)
-          final += "\n" + this.ExtraChars("[UN] Process update done, i do it... because you are so too lazy :)))") + "\n"
-          if (this.config.notification.useCallback) this.sendSocketNotification("SendResult", final)
-          this.sendSocketNotification("UPDATED" , module)
-          if (!this.config.update.autoRestart) this.sendSocketNotification("NEEDRESTART")
+          final += "\n" + this.ExtraChars("[UN] Update error!") + "\n"
+          this.sendSocketNotification("SendResult", final)
         }
+        this.sendSocketNotification("ERROR_UPDATE" , module)
+      } else {
+        console.log(`[UN] Update logs of ${module}: ${stdout}`)
+        if (this.config.notification.useTelegramBot && this.config.notification.useCallback) {
+          /** trying to parse stdout to Telegram without errors ... it's horrible ! **/
+          var res = {'results': stdout.split('\n')}
+          var final = "Update logs of " + module + ":\n\n"
+          res.results.forEach(value => {
+            if (value) final += this.ExtraChars(this.StripColor(value)) + "\n"
+          })
+          final += "\n" + this.ExtraChars("[UN] Process update done, i do it... because you are so too lazy :)))") + "\n"
+          this.sendSocketNotification("SendResult", final)
+        }
+        this.sendSocketNotification("UPDATED", module)
         if (this.config.update.autoRestart) {
           log("Process update done, i do it... because you are so too lazy :)))")
           setTimeout(() => this.restartMM(), 3000)
-        } else log("Process update done, don't forget to restart MagicMirror!")
+        } else {
+          log("Process update done, don't forget to restart MagicMirror!")
+          this.sendSocketNotification("NEEDRESTART")
+        }
       }
     })
   },
@@ -249,7 +253,7 @@ module.exports = NodeHelper.create({
     /** but no control of it **/
     /** I add stopMM command on telegram to stop process **/
     /** @Saljoke is happy it's sooOOooOO Good ! **/
-    log("Restarting MagicMirror...")
+    console.log("Restarting MagicMirror...")
     var MMdir = path.normalize(__dirname + "/../../")
     const out = this.config.update.logToConsole ? process.stdout : fs.openSync('./MagicMirror.log', 'a')
     const err = this.config.update.logToConsole ? process.stderr : fs.openSync('./MagicMirror.log', 'a')

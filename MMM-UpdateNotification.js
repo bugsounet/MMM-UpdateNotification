@@ -126,23 +126,15 @@ Module.register("MMM-UpdateNotification", {
         this.sendSocketNotification("CONFIG", this.config)
         /** wait a little time ... every one is loading ! it's just an RPI !!! **/
         if (this.error) {
-          if (this.config.notification.useTelegramBot) {
-            this.sendNotification("TELBOT_TELL_ADMIN", this.translate("WELCOMEERROR", { ERROR: this.error }), {parse_mode:'Markdown'})
-          }
+          if (this.config.notification.useTelegramBot) this.sendAdmin(this.translate("TB_WELCOMEERROR", { ERROR: this.error }), true)
           else {
-            this.sendNotification("SHOW_ALERT", {
-              type: "notification" ,
-              message: this.translate("WELCOMEERROR_NOTB", { ERROR: this.error }),
-              title: "MMM-UpdateNotification",
-              timer: 0
-            })
+            this.sendAlert(this.translate("ALERT_WELCOMEERROR", { ERROR: this.error }))
             this.updateCommands(null, null, null, true)
           }
         }
         else setTimeout(() => this.sendSocketNotification("MODULES", this.modulesName), this.config.startDelay)
         break
       case "NPM_UPDATE":
-        //console.log("npm", payload)
         if (!this.error) this.updateUI(payload)
         break
     }
@@ -151,37 +143,55 @@ Module.register("MMM-UpdateNotification", {
   socketNotificationReceived: function (notification, payload) {
     switch (notification) {
       case "STATUS":
-        //console.log("modules", payload)
         this.updateUI(payload)
         break
       case "INITIALIZED":
         if (!this.error) {
           this.init=true
-          if (this.config.notification.useTelegramBot && this.config.notification.sendReady) {
-            this.sendNotification("TELBOT_TELL_ADMIN", this.translate("INITIALIZED", { VERSION: payload }))
+          if (this.config.notification.sendReady) {
+            if (this.config.notification.useTelegramBot) this.sendAdmin(this.translate("INITIALIZED", { VERSION: payload }))
+            else this.sendAlert(this.translate("INITIALIZED", { VERSION: payload }), 5*1000)
           }
         }
         break
       case "WELCOME":
-        this.sendNotification("TELBOT_TELL_ADMIN", this.translate(this.config.update.usePM2 ? "WELCOME" : "WELCOMEPID", this.config.update.usePM2 ? {} : { PID: payload }))
+        if (this.config.notification.useTelegramBot) this.sendAdmin(this.translate(this.config.update.usePM2 ? "TB_WELCOME" : "TB_WELCOMEPID", this.config.update.usePM2 ? {} : { PID: payload }))
+        else this.sendAlert(this.translate(this.config.update.usePM2 ? "ALERT_WELCOME" : "ALERT_WELCOMEPID", this.config.update.usePM2 ? {} : { PID: payload }), 5*1000)
         break
       case "UPDATED":
         this.updating = false
-        this.sendNotification("TELBOT_TELL_ADMIN", this.translate("UPDATE_DONE", { MODULE_NAME: payload }))
+        if (this.config.notification.useTelegramBot) this.sendAdmin(this.translate("UPDATE_DONE", { MODULE_NAME: payload }))
+        else this.sendAlert(this.translate("UPDATE_DONE", { MODULE_NAME: payload }))
         break
       case "NEEDRESTART":
-        this.sendNotification("TELBOT_TELL_ADMIN",  this.translate("NEEDRESTART"))
+        if (this.config.notification.useTelegramBot) this.sendAdmin(this.translate("NEEDRESTART"))
+        else this.sendAlert(this.translate("NEEDRESTART"))
         break
       case "ERROR_UPDATE":
-        this.sendNotification("TELBOT_TELL_ADMIN",  this.translate("UPDATE_ERROR", { ERROR: payload }))
+        if (this.config.notification.useTelegramBot) this.sendAdmin(this.translate("TB_UPDATE_ERROR", { MODULE_NAME: payload }))
+        else this.sendAlert(this.translate("ALERT_UPDATE_ERROR", { MODULE_NAME: payload }))
         break
       case "SendResult":
-        this.sendNotification("TELBOT_TELL_ADMIN", payload, {parse_mode:'Markdown'})
+        this.sendAdmin(payload, true)
         break
       case "SCAN_COMPLETE":
         this.checkCallback(payload)
         break
     }
+  },
+
+  sendAdmin: function (text, parse) {
+    if (parse) this.sendNotification("TELBOT_TELL_ADMIN", text, {parse_mode:'Markdown'})
+    else this.sendNotification("TELBOT_TELL_ADMIN", text)
+  },
+
+  sendAlert: function (text, timer = 0) {
+    this.sendNotification("SHOW_ALERT", {
+      type: "notification" ,
+      message: text,
+      title: "MMM-UpdateNotification",
+      timer: timer
+    })
   },
 
   updateUI: function (modules) {
@@ -268,8 +278,7 @@ Module.register("MMM-UpdateNotification", {
             TB = this.translate("UPDATE_NOTIFICATION_MODULE", { MODULE_NAME: m.module }) + "\n"
           }
           TB += this.translate(updateInfoKeyName, { COMMIT_COUNT: m.behind, BRANCH_NAME: m.current }) + "\n"
-          console.log("[UN] ", TB)
-          this.sendNotification("TELBOT_TELL_ADMIN", TB)
+          this.sendAdmin(TB)
         }
         if (this.config.update.autoUpdate && !this.updating) {
           if (m.module == "MagicMirror" && !this.config.updateMagicMirror) {
@@ -327,8 +336,7 @@ Module.register("MMM-UpdateNotification", {
         if (this.config.notification.useTelegramBot) {
           let TB = this.translate("UPDATE_NOTIFICATION_MODULE", { MODULE_NAME: npm.module }) + "\n"
           TB += "[NPM] " + npm.library + " v" + npm.installed +" -> v" + npm.latest + "\n"
-          this.sendNotification("TELBOT_TELL_ADMIN", TB)
-          console.log("[UN] ", TB)
+          this.sendAdmin(TB)
         }
         if (this.config.update.autoUpdate && !this.updating) {
           this.updateProcess(npm.module)
@@ -638,7 +646,7 @@ Module.register("MMM-UpdateNotification", {
 
   /** send a reply after all info received **/
   Reply: function(command, handler, message, session, markdown = false) {
-    if (!message || !session) return console.log("wrong Format!", message, session)
+    if (!message || !session) return console.log("[UN] Reply -- wrong Format!", message, session)
     handler.reply("TEXT", message, markdown )
     delete this.session[session]
   },
