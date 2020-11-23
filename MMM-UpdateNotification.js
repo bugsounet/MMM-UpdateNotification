@@ -30,6 +30,10 @@ Module.register("MMM-UpdateNotification", {
       {
         module: "MMM-Pronote",
         command: "npm run update"
+      },
+      {
+        module: "MMM-NewPIR",
+        command: "npm run update"
       }
     ],
     notification: {
