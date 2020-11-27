@@ -106,28 +106,35 @@ module.exports = NodeHelper.create({
 
   dataFetch: function (sg,nb) {
     return new Promise((resolve, reject) => {
-      sg.git.fetch().status((err, data) => {
-        data.module = sg.module
-        log("[" + (nb+1) + "/" + this.simpleGits.length +"] Scan:" , data.module)
-        if (!err) {
-          /** send ONLY needed info **/
-          moduleGitInfo = {
-            module: data.module,
-            behind: data.behind,
-            current: data.current,
-            tracking: data.tracking
+      sg.git
+        .fetch(err => {
+          if (err) {
+            log("Error: " + sg.module, err)
+            resolve()
           }
-          if (!moduleGitInfo.current || !moduleGitInfo.tracking) {
-            log("Scan Infos not complete:", data.module)
+        })
+        .status((err, data) => {
+          data.module = sg.module
+          log("[" + (nb+1) + "/" + this.simpleGits.length +"] Scan:" , data.module)
+          if (err) {
+            log("Scan Error: " + data.module, err)
+            resolve()
           } else {
-            log("Scan Infos:", moduleGitInfo)
+            /** send ONLY needed info **/
+            moduleGitInfo = {
+              module: data.module,
+              behind: data.behind,
+              current: data.current,
+              tracking: data.tracking
+            }
+            if (!moduleGitInfo.current || !moduleGitInfo.tracking) {
+              log("Scan Infos not complete:", data.module)
+            } else {
+              log("Scan Infos:", moduleGitInfo)
+            }
+            resolve(moduleGitInfo)
           }
-          resolve(moduleGitInfo)
-        } else {
-          log("Scan Error: " + data.module, err)
-          resolve()
-        }
-      })
+        })
     })
   },
 
