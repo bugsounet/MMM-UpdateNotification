@@ -34,6 +34,10 @@ Module.register("MMM-UpdateNotification", {
       {
         module: "MMM-NewPIR",
         command: "npm run update"
+      },
+      {
+        module: "MMM-FreeboxTV",
+        command: "npm run update"
       }
     ],
     notification: {

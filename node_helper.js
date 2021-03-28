@@ -159,9 +159,7 @@ module.exports = NodeHelper.create({
   /************************************************/
 
   scheduleNextFetch: function (delay) {
-    if (delay < 60 * 1000) {
-      delay = 60 * 1000
-    }
+    if (delay < 60 * 1000) delay = 60 * 1000
 
     clearTimeout(this.updateTimer)
     this.updateTimer = setTimeout(async ()=> {
