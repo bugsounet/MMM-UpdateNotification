@@ -38,6 +38,10 @@ Module.register("MMM-UpdateNotification", {
       {
         module: "MMM-FreeboxTV",
         command: "npm run update"
+      },
+      {
+        module: "MMM-Snowboy",
+        command: "npm run update"
       }
     ],
     notification: {
