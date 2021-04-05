@@ -1,6 +1,6 @@
 {
   "name": "MMM-UpdateNotification",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "description": "Update notification",
   "main": "MMM-UpdateNotification.js",
   "repository": {

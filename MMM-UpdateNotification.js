@@ -415,6 +415,7 @@ Module.register("MMM-UpdateNotification", {
       fr: "translations/fr.json",
       it: "translations/it.json",
       de: "translations/de.json",
+      es: "translations/es.json"
     }
   },
 
