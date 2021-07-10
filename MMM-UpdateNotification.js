@@ -24,10 +24,6 @@ Module.register("MMM-UpdateNotification", {
         command: "npm run update -- without-prompt"
       },
       {
-        module: "MMM-Assistant2Display",
-        command: "npm run update -- without-prompt"
-      },
-      {
         module: "MMM-Pronote",
         command: "npm run update"
       },
@@ -36,11 +32,19 @@ Module.register("MMM-UpdateNotification", {
         command: "npm run update"
       },
       {
+        module: "MMM-Freebox",
+        command: "npm run update"
+      },
+      {
         module: "MMM-FreeboxTV",
         command: "npm run update"
       },
       {
         module: "MMM-Snowboy",
+        command: "npm run update"
+      },
+      {
+        module: "MMM-Detector",
         command: "npm run update"
       }
     ],
@@ -415,7 +419,8 @@ Module.register("MMM-UpdateNotification", {
       fr: "translations/fr.json",
       it: "translations/it.json",
       de: "translations/de.json",
-      es: "translations/es.json"
+      es: "translations/es.json",
+      nl: "translations/nl.json"
     }
   },
 

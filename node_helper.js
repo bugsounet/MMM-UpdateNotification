@@ -12,6 +12,7 @@ var exec = require('child_process').exec
 var spawn = require('child_process').spawn
 const pm2 = require('pm2')
 var log = (...args) => { /* do nothing */ }
+const express = require("express");
 
 module.exports = NodeHelper.create({
   start: function () {
@@ -67,6 +68,7 @@ module.exports = NodeHelper.create({
           data = await this.performFetch()
           this.sendSocketNotification("INITIALIZED", require('./package.json').version)
           this.sendStatus(data)
+          this.createRoutes()
           this.scheduleNextFetch(this.config.updateInterval)
         })
         break
@@ -297,6 +299,14 @@ module.exports = NodeHelper.create({
   StripColor: function(str) {
     str = str.replace(/\[(\[H\033\[2J|\d+;\d+H|\d+(;\d+;\d+(;\d+;\d+)?m|[m])|1K)|\[m/g, '')
     return str
-  }
+  },
 
+  createRoutes: function() {
+    /** http remote for restart **/
+    log("Create http Route /UNRestart")
+    this.expressApp.get("/UNRestart", (req, res) => {
+      res.send("Restarting MagicMirror...")
+      this.restartMM()
+    })
+  }
 });
